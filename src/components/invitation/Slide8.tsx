@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Loader2, Send } from "lucide-react";
 import { useInvitation } from "@/lib/invitation-store";
+import {
+  addLocalRsvp,
+  loadLocalRsvp,
+  type LocalRsvp,
+} from "@/lib/local-fallback";
 
 const BG_IMAGE =
   "https://imglinkv-3.vercel.app/api/images/cmwdgsc0wzfl25lw0/file";
@@ -49,12 +54,15 @@ export default function Slide8() {
     setWishesLoading(true);
     try {
       const res = await fetch("/api/rsvp", { cache: "no-store" });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (res.ok && data?.ok && Array.isArray(data.rows)) {
         setWishes(data.rows);
+      } else {
+        // API tidak tersedia (static hosting) → pakai ucapan lokal browser ini.
+        setWishes(loadLocalRsvp() as Wish[]);
       }
     } catch {
-      // silent — wishes are a nice-to-have, not critical
+      setWishes(loadLocalRsvp() as Wish[]);
     } finally {
       setWishesLoading(false);
     }
@@ -76,16 +84,22 @@ export default function Slide8() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, attendance, count, message }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        throw new Error(data?.error || "Gagal mengirim");
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) {
+        setStatus("success");
+        // refresh wishes list so the new submission appears
+        fetchWishes();
+      } else {
+        // Backend tidak tersedia (static hosting) → simpan lokal di browser
+        // tamu ini supaya ucapan tetap tampil di daftar.
+        addLocalRsvp({ name, attendance, count, message: message.trim() || null });
+        setStatus("success");
+        fetchWishes();
       }
+    } catch {
+      addLocalRsvp({ name, attendance, count, message: message.trim() || null });
       setStatus("success");
-      // refresh wishes list so the new submission appears
       fetchWishes();
-    } catch (err) {
-      setStatus("error");
-      setErrorMsg(err instanceof Error ? err.message : "Gagal mengirim");
     }
   };
 

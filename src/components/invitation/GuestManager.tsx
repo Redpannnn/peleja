@@ -21,6 +21,13 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { parseContactFile, detectFormat, type ParsedContact } from "@/lib/contact-import";
+import {
+  addLocalGuests,
+  clearLocalGuests,
+  loadLocalGuests,
+  removeLocalGuest,
+  updateLocalGuest,
+} from "@/lib/local-fallback";
 import { useToast } from "@/hooks/use-toast";
 
 type Guest = {
@@ -64,6 +71,8 @@ export default function GuestManager() {
   const { toast } = useToast();
 
   const [fetchError, setFetchError] = useState("");
+  /** True kalau API backend tidak tersedia → data tamu pakai localStorage. */
+  const [offlineMode, setOfflineMode] = useState(false);
 
   /** Set of guest IDs yang preview-nya lagi dibuka (hide/unhide teks pesan). */
   const [previewOpen, setPreviewOpen] = useState<Set<string>>(new Set());
@@ -87,14 +96,18 @@ export default function GuestManager() {
     setFetchError("");
     try {
       const res = await fetch("/api/guests", { cache: "no-store" });
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => null);
       if (data?.ok && Array.isArray(data.rows)) {
         setGuests(data.rows);
+        setOfflineMode(false);
       } else {
-        setFetchError(data?.error || "Gagal memuat daftar tamu.");
+        // Backend tidak tersedia (static hosting) → daftar tamu lokal.
+        setGuests(loadLocalGuests());
+        setOfflineMode(true);
       }
     } catch {
-      setFetchError("Gagal terhubung ke server. Cek koneksi/database.");
+      setGuests(loadLocalGuests());
+      setOfflineMode(true);
     } finally {
       setLoading(false);
     }
@@ -144,25 +157,35 @@ export default function GuestManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guests: entries }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) {
+        setResult({
+          added: data.added ?? 0,
+          errors: data.errors ?? [],
+        });
+        setBulkText("");
+      } else if (data === null) {
+        // Respon bukan JSON → backend tidak ada (static hosting) → simpan lokal.
+        const local = addLocalGuests(entries);
+        setOfflineMode(true);
+        setResult(local);
+        setBulkText("");
+      } else {
         setResult({
           added: data.added ?? 0,
           errors: data.errors ?? [
             data.error || `Server error (HTTP ${res.status})`,
           ],
         });
-      } else {
-        setResult({
-          added: data.added ?? 0,
-          errors: data.errors ?? [],
-        });
-        setBulkText("");
       }
       // ALWAYS refresh list — even on error, so user sees current DB state.
       await fetchGuests();
     } catch {
-      setResult({ added: 0, errors: ["Gagal terhubung ke server."] });
+      const local = addLocalGuests(entries);
+      setOfflineMode(true);
+      setResult(local);
+      setBulkText("");
+      await fetchGuests();
     } finally {
       setSubmitting(false);
     }
@@ -174,10 +197,17 @@ export default function GuestManager() {
   const handleDelete = async (id: string) => {
     if (!confirm("Hapus tamu ini?")) return;
     try {
-      await fetch(`/api/guests?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/guests?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        // Static hosting → hapus dari localStorage.
+        removeLocalGuest(id);
+        setOfflineMode(true);
+      }
       fetchGuests();
     } catch {
-      // silent
+      removeLocalGuest(id);
+      setOfflineMode(true);
+      fetchGuests();
     }
   };
 
@@ -187,11 +217,17 @@ export default function GuestManager() {
     setRemovingAll(true);
     try {
       // Delete semua tamu secara parallel
-      await Promise.all(
+      const results = await Promise.all(
         guests.map((g) =>
           fetch(`/api/guests?id=${g.id}`, { method: "DELETE" })
         )
       );
+      const anyOk = results.some((r) => r.ok);
+      if (!anyOk && guests.length > 0) {
+        // Static hosting → bersihkan localStorage.
+        clearLocalGuests();
+        setOfflineMode(true);
+      }
       // Reset state copy counter juga
       setCopiedIds(new Set());
       setCopiedKey(null);
@@ -202,9 +238,15 @@ export default function GuestManager() {
         description: "Semua data tamu telah dihapus.",
       });
     } catch {
+      clearLocalGuests();
+      setOfflineMode(true);
+      setCopiedIds(new Set());
+      setCopiedKey(null);
+      setPreviewOpen(new Set());
+      await fetchGuests();
       toast({
-        title: "Gagal menghapus",
-        description: "Terjadi kesalahan. Coba lagi.",
+        title: "Daftar tamu dikosongkan",
+        description: "Semua data tamu telah dihapus.",
       });
     } finally {
       setRemovingAll(false);
@@ -247,8 +289,8 @@ export default function GuestManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.ok) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) {
         // update local state supaya langsung keliatan
         setGuests((prev) =>
           prev.map((x) => (x.id === g.id ? { ...x, name } : x))
@@ -260,11 +302,25 @@ export default function GuestManager() {
           return next;
         });
         cancelEdit();
+      } else if (data === null) {
+        // Static hosting → update localStorage.
+        updateLocalGuest(g.id, name);
+        setOfflineMode(true);
+        setGuests(loadLocalGuests());
+        setCopiedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(g.id);
+          return next;
+        });
+        cancelEdit();
       } else {
         alert(data?.error || "Gagal menyimpan perubahan.");
       }
     } catch {
-      alert("Gagal terhubung ke server.");
+      updateLocalGuest(g.id, name);
+      setOfflineMode(true);
+      setGuests(loadLocalGuests());
+      cancelEdit();
     } finally {
       setEditSaving(false);
     }
@@ -299,13 +355,19 @@ export default function GuestManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guests: entries }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.ok) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) {
         setImportResult({
           added: data.added ?? 0,
           errors: data.errors ?? [],
           format,
         });
+        await fetchGuests();
+      } else if (data === null) {
+        // Static hosting → simpan tamu hasil import ke localStorage.
+        const local = addLocalGuests(entries);
+        setOfflineMode(true);
+        setImportResult({ ...local, format });
         await fetchGuests();
       } else {
         setImportResult({
@@ -413,6 +475,23 @@ export default function GuestManager() {
             Lihat Undangan
           </a>
         </motion.div>
+
+        {/* Banner mode offline — backend tidak tersedia (static hosting). */}
+        {offlineMode && (
+          <div
+            role="status"
+            className="mb-6 rounded-2xl border border-[#544c39]/25 bg-[#fff8ec] px-4 py-3 text-center"
+          >
+            <p className="font-latin text-[0.62rem] font-medium uppercase tracking-[0.18em] text-[#740404]">
+              Mode Offline
+            </p>
+            <p className="font-script mt-1 text-[0.78rem] leading-relaxed text-[#3a3424]">
+              Server database tidak terhubung, jadi daftar tamu disimpan di
+              browser ini saja. Link undangan (&amp; pesan WhatsApp) tetap
+              berfungsi normal untuk semua tamu.
+            </p>
+          </div>
+        )}
 
         {/* Bulk add form — single column */}
         <motion.form

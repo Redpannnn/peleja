@@ -10,6 +10,7 @@ import {
   COVER_SWAY,
   SwayLayer,
 } from "@/components/invitation/BgScene";
+import { prettifyGuestParam } from "@/lib/local-fallback";
 
 /* Palet warna revisi (kartu capsule krem + outline gold muda #F7D794) */
 const CARD_OUTLINE = "#F7D794";
@@ -56,13 +57,15 @@ export default function Slide1Cover() {
     if (!decoded) return;
 
     // Cek di database dulu — kalau code terdaftar, pakai nama lengkapnya.
+    // Kalau API tidak tersedia (static hosting), tampilkan param yang sudah
+    // dirapikan: "budi-santoso" → "Budi Santoso".
     fetch(`/api/guests/lookup?code=${encodeURIComponent(decoded)}`)
-      .then((r) => r.json())
+      .then((r) => r.json().catch(() => null))
       .then((data) => {
-        setGuestName(data?.name ?? decoded);
+        setGuestName(data?.name ?? prettifyGuestParam(decoded));
       })
       .catch(() => {
-        setGuestName(decoded);
+        setGuestName(prettifyGuestParam(decoded));
       });
   }, []);
 
