@@ -4,14 +4,60 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Loader2, Send } from "lucide-react";
 import { useInvitation } from "@/lib/invitation-store";
-import {
-  addLocalRsvp,
-  loadLocalRsvp,
-  type LocalRsvp,
-} from "@/lib/local-fallback";
 
 const BG_IMAGE =
   "https://imglinkv-3.vercel.app/api/images/cmwdgsc0wzfl25lw0/file";
+
+/* ── Fallback localStorage (dipakai saat server database tidak tersedia) ── */
+
+const RSVP_KEY = "yayak-eci-rsvp-v1";
+
+type LocalRsvp = {
+  id: string;
+  name: string;
+  attendance: string;
+  count: number;
+  message: string | null;
+  createdAt: string;
+};
+
+function loadLocalRsvp(): LocalRsvp[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(RSVP_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as LocalRsvp[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addLocalRsvp(entry: {
+  name: string;
+  attendance: string;
+  count: number;
+  message: string | null;
+}): LocalRsvp {
+  const row: LocalRsvp = {
+    id:
+      "l" +
+      Date.now().toString(36) +
+      Math.random().toString(36).slice(2, 10),
+    name: entry.name,
+    attendance: entry.attendance,
+    count: entry.count,
+    message: entry.message,
+    createdAt: new Date().toISOString(),
+  };
+  try {
+    const rows = loadLocalRsvp();
+    rows.unshift(row);
+    window.localStorage.setItem(RSVP_KEY, JSON.stringify(rows.slice(0, 300)));
+  } catch {
+    // storage penuh / disabled — diam saja
+  }
+  return row;
+}
 
 type Attendance = "hadir" | "tidak" | "ragu";
 

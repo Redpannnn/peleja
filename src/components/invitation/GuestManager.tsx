@@ -21,14 +21,97 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { parseContactFile, detectFormat, type ParsedContact } from "@/lib/contact-import";
-import {
-  addLocalGuests,
-  clearLocalGuests,
-  loadLocalGuests,
-  removeLocalGuest,
-  updateLocalGuest,
-} from "@/lib/local-fallback";
 import { useToast } from "@/hooks/use-toast";
+
+/* ── Fallback localStorage (dipakai saat server database tidak tersedia) ── */
+
+const GUESTS_KEY = "yayak-eci-guests-v1";
+
+type LocalGuest = {
+  id: string;
+  code: string;
+  name: string;
+  createdAt: string;
+};
+
+function loadLocalGuests(): LocalGuest[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(GUESTS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as LocalGuest[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalGuests(rows: LocalGuest[]): void {
+  try {
+    window.localStorage.setItem(GUESTS_KEY, JSON.stringify(rows));
+  } catch {
+    // storage penuh / disabled — diam saja
+  }
+}
+
+function genLocalId(): string {
+  return "l" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+
+/** Slug dari nama — dipakai kalau tamu ditambah tanpa code custom. */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Tambah beberapa tamu sekaligus (mirip POST /api/guests bulk). */
+function addLocalGuests(
+  entries: { code: string; name: string }[]
+): { added: number; errors: string[] } {
+  const rows = loadLocalGuests();
+  let added = 0;
+  const errors: string[] = [];
+
+  for (const e of entries) {
+    const name = e.name?.trim();
+    if (!name) {
+      errors.push("Nama kosong — dilewati.");
+      continue;
+    }
+    const code = (e.code?.trim() || slugify(name)).toLowerCase();
+    const duplicate =
+      rows.some((r) => r.code === code) || rows.some((r) => r.name === name);
+    if (duplicate) {
+      errors.push(`${name} — sudah terdaftar, dilewati.`);
+      continue;
+    }
+    rows.push({
+      id: genLocalId(),
+      code,
+      name,
+      createdAt: new Date().toISOString(),
+    });
+    added++;
+  }
+
+  writeLocalGuests(rows);
+  return { added, errors };
+}
+
+function updateLocalGuest(id: string, name: string): void {
+  writeLocalGuests(
+    loadLocalGuests().map((r) => (r.id === id ? { ...r, name } : r))
+  );
+}
+
+function removeLocalGuest(id: string): void {
+  writeLocalGuests(loadLocalGuests().filter((r) => r.id !== id));
+}
+
+function clearLocalGuests(): void {
+  writeLocalGuests([]);
+}
 
 type Guest = {
   id: string;
@@ -164,7 +247,7 @@ export default function GuestManager() {
           errors: data.errors ?? [],
         });
         setBulkText("");
-      } else if (data === null) {
+      } else if (data === null || data?.hint) {
         // Respon bukan JSON → backend tidak ada (static hosting) → simpan lokal.
         const local = addLocalGuests(entries);
         setOfflineMode(true);
@@ -302,7 +385,7 @@ export default function GuestManager() {
           return next;
         });
         cancelEdit();
-      } else if (data === null) {
+      } else if (data === null || data?.hint) {
         // Static hosting → update localStorage.
         updateLocalGuest(g.id, name);
         setOfflineMode(true);
@@ -363,7 +446,7 @@ export default function GuestManager() {
           format,
         });
         await fetchGuests();
-      } else if (data === null) {
+      } else if (data === null || data?.hint) {
         // Static hosting → simpan tamu hasil import ke localStorage.
         const local = addLocalGuests(entries);
         setOfflineMode(true);

@@ -10,7 +10,6 @@ import {
   COVER_SWAY,
   SwayLayer,
 } from "@/components/invitation/BgScene";
-import { prettifyGuestParam } from "@/lib/local-fallback";
 
 /* Palet warna revisi (kartu capsule krem + outline gold muda #F7D794) */
 const CARD_OUTLINE = "#F7D794";
@@ -19,6 +18,20 @@ const BROWN = "#5a4a3a";
 
 const COUPLE_PHOTO =
   "https://imglinkv-3.vercel.app/api/images/cmwdb82qqqrqizphy/file";
+
+/**
+ * Rapikan nama tamu dari parameter URL (?to=budi-santoso) supaya tetap tampil
+ * sopan saat lookup database tidak tersedia (mis. tanpa DATABASE_URL):
+ * "budi-santoso" → "Budi Santoso".
+ */
+function prettifyGuestParam(raw: string): string {
+  const spaced = raw.replace(/[-_+]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!spaced) return raw;
+  if (spaced === spaced.toLowerCase()) {
+    return spaced.replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase());
+  }
+  return spaced;
+}
 
 // Staggered entrance animation — konten kartu muncul berurutan.
 const container = {

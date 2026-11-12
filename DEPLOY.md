@@ -1,40 +1,53 @@
 # Panduan Deploy — Undangan Yayak & Eci
 
-Ada 2 file zip yang disiapkan:
+## Deploy ke Vercel (cara yang kamu pakai sekarang)
 
-## 1. `yayak-eci-deploy.zip` — PALING MUDAH (tanpa setup)
+Repo GitHub: github.com/Redpannnn/peleja → Vercel build otomatis.
 
-Isi: hasil build statis (ada `index.html` di root zip). Undangan jalan 100%:
-cover, video, mempelai, acara, galeri, story, gift, RSVP, penutup, musik.
+**PENTING — supaya tidak error "Module not found" lagi:**
 
-Cara deploy — pilih salah satu:
+1. Hapus DULU semua isi repo lama di GitHub (biar tidak ada file sisa lama).
+2. Ekstrak zip ini → upload SEMUA file & folder di dalamnya ke root repo.
+   Root repo harus berisi: `package.json`, `next.config.ts`, `src/`,
+   `prisma/`, `public/`, `bun.lock`, dst. (jangan sampai ada yang
+   terlewat saat drag ke GitHub web).
+3. Commit → Vercel otomatis rebuild → sukses.
 
-- **Netlify Drop**: buka `app.netlify.com/drop` → tarik-taruh file zip ini
-  → langsung jadi (gratis, dapat URL, bisa ganti nama situs).
-- **Cloudflare Pages**: dash.cloudflare.com → Workers & Pages → Create →
-  Pages → Upload assets → upload isi zip.
-- **Vercel**: akun gratis → `vercel deploy` dari folder hasil ekstrak zip
-  (butuh Node.js + `npm i -g vercel`), atau push ke GitHub lalu import.
+Build di Vercel: `bun install` → `next build` (Next.js 16). Tidak perlu
+setting apapun — framework otomatis terdeteksi.
 
-Catatan mode statis: RSVP & daftar tamu disimpan di **localStorage browser**
-(karena tidak ada server database). Ucapan tetap tampil di perangkat tamu yang
-bersangkutan, dan halaman `?manage` tetap bisa dipakai untuk mengelola daftar
-tamu + membuat link undangan `?to=nama-tamu` (nama otomatis dirapikan).
+## Soal RSVP & Daftar Tamu
 
-## 2. `yayak-eci-source.zip` — source code lengkap (ada backend)
+Halaman undangan, link tamu (`?to=nama-tamu`), dan semua slide jalan 100%.
 
-Untuk deploy penuh dengan database (RSVP tersimpan server, semua tamu terlihat
-di satu tempat):
+- **Tanpa database** (default): RSVP & daftar tamu otomatis disimpan di
+  localStorage browser. Halaman `?manage` menampilkan banner "Mode Offline"
+  — daftar tamu tersimpan per-browser, tapi link undangan & pesan WhatsApp
+  tetap berfungsi normal untuk semua tamu.
+- **Dengan database (opsional, RSVP tersimpan di server):** buat database
+  gratis di turso.tech, lalu di Vercel → Project → Settings → Environment
+  Variables tambahkan:
+  - `DATABASE_URL` = `libsql://<nama-db>-<user>.turso.io`
+  - `DATABASE_AUTH_TOKEN` = token dari Turso
+  Setelah itu Redeploy. Tanpa dua variabel ini, semuanya tetap jalan
+  (mode offline di atas).
 
-1. Ekstrak → push ke repositori GitHub.
-2. Import di Vercel (vercel.com/new) → Framework: Next.js → Deploy.
-3. RSVP server membutuhkan database libSQL/Turso:
-   - Buat database gratis di turso.tech, lalu di Vercel → Settings →
-     Environment Variables tambahkan:
-     - `DATABASE_URL` = `libsql://<nama-db>-<user>.turso.io`
-     - `DATABASE_AUTH_TOKEN` = token dari Turso
-   - Tanpa variabel ini, halaman undangan tetap jalan; RSVP otomatis
-     fallback ke localStorage.
+## Plan B — kalau build di Vercel gagal (jarang terjadi)
 
-Menjalankan lokal: `bun install` → `bun run dev` → http://localhost:3000
-Build statis lagi: `bun run build:static` → hasil di `.next-static/`
+Folder `static-version/` di dalam zip ini adalah website versi statis yang
+sudah jadi. Isinya bisa langsung di-upload ke:
+
+- Netlify Drop (`app.netlify.com/drop`) — tarik-taruh → langsung online
+- Cloudflare Pages → Upload assets
+
+(Workflow: jangan upload folder `static-version/` ke GitHub bareng source —
+itu hanya cadangan. Boleh juga ikut ter-upload, Vercel mengabaikannya.)
+
+## Jalan lokal (kalau perlu)
+
+```
+bun install
+bun run dev      → http://localhost:3000
+```
+
+Build ulang versi statis: `bun run build:static` → hasil di `.next-static/`
