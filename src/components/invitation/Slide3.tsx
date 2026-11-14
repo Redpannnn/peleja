@@ -4,8 +4,9 @@ import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import { useInvitation } from "@/lib/invitation-store";
 
-const BG_IMAGE =
-  "https://imglinkv-3.vercel.app/api/images/cmwdgsc0wzfl25lw0/file";
+// Wallpaper section 1 — VIDEO looping (revisi user, file mp4 dari imglink).
+const BG_VIDEO =
+  "https://imglinkv-3.vercel.app/api/images/cmwfqgyf99ytimxvm/file";
 
 // Foto mempelai — revisi user: pria & wanita foto berbeda.
 const GROOM_PHOTO =
@@ -38,22 +39,36 @@ const item = {
 
 export default function Slide3() {
   const goTo = useInvitation((s) => s.goTo);
+  // Sinkron dengan cover card slide 2 (revisi user): bunga pembatas baru
+  // muncul setelah video slide 2 kelar + cover card tampil.
+  const coverCardShown = useInvitation((s) => s.coverCardShown);
 
   return (
-    <main className="relative flex min-h-[100dvh] w-full flex-col items-center overflow-hidden bg-stone-100">
-      {/* Background image — FIXED (parallax) so it stays put while the user
-          scrolls through the long content. */}
-      <motion.img
-        src={BG_IMAGE}
-        alt="Latar slide mempelai"
+    <main className="relative flex min-h-[100dvh] w-full flex-col items-center overflow-x-clip bg-stone-100">
+      {/* Background VIDEO — FIXED (parallax) so it stays put while the user
+          scrolls through the long content. Muted + loop + playsinline supaya
+          autoplay di semua browser (kebijakan autoplay Chrome/Safari). */}
+      <motion.video
+        src={BG_VIDEO}
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="auto"
+        aria-hidden
         initial={{ scale: 1.08, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
         className="h-full w-full object-cover"
         style={{ position: "fixed", inset: 0, zIndex: 0 }}
-        loading="eager"
-        // @ts-expect-error -- fetchPriority is valid in React 19 but not in older types
-        fetchPriority="high"
+        // React kadang tidak menerapkan atribut muted ke DOM — set langsung
+        // lewat ref supaya autoplay-with-sound-block selalu terhindar.
+        ref={(v) => {
+          if (v) {
+            v.muted = true;
+            v.play().catch(() => {});
+          }
+        }}
       />
 
       {/* Subtle top darkening so the back button stays readable */}
@@ -61,6 +76,51 @@ export default function Slide3() {
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 z-[2] h-32 bg-gradient-to-b from-black/15 to-transparent"
       />
+
+      {/* Pembatas slide 2 ↔ slide 3 — bunga cascade PAS DI TENGAH garis
+          batas kedua slide (revisi user): setengah di slide 2, setengah di
+          slide 3. trik: main pakai overflow-x-clip (sumbu-Y bebas) supaya
+          bunga bisa "keluar" ke atas main dan terlihat menumpuk di slide 2;
+          z-30 (root context) menang atas slide 2 (z-10). Kanan: di-mirror
+          (sisi rimbun nempel pojok kanan). Kiri: gambar normal (sisi rimbun
+          nempel pojok kiri). MUNCUL BARENG cover card slide 2 (gate flag
+          coverCardShown, delay 0.25s + durasi 1s — sama persis dengan animasi
+          cover card). Ukuran digedein ~30%: min(46.8vw, 40.56rem) — nabrak
+          elemen lain tidak masalah (revisi user). */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute right-[-5%] top-0 z-30 h-[min(46.8vw,40.56rem)] -translate-y-1/2 -scale-x-100"
+      >
+        <motion.img
+          src="/flowers/wedding-flower-2.png"
+          alt=""
+          initial={{ opacity: 0, y: -22 }}
+          animate={
+            coverCardShown ? { opacity: 1, y: 0 } : { opacity: 0, y: -22 }
+          }
+          transition={{ duration: 1.0, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+          className="h-full w-auto select-none"
+          loading="eager"
+          decoding="async"
+        />
+      </div>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-[-5%] top-0 z-30 h-[min(46.8vw,40.56rem)] -translate-y-1/2"
+      >
+        <motion.img
+          src="/flowers/wedding-flower-2.png"
+          alt=""
+          initial={{ opacity: 0, y: -22 }}
+          animate={
+            coverCardShown ? { opacity: 1, y: 0 } : { opacity: 0, y: -22 }
+          }
+          transition={{ duration: 1.0, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+          className="h-full w-auto select-none"
+          loading="eager"
+          decoding="async"
+        />
+      </div>
 
       {/* Back button — top-left, scroll back to slide 2 */}
       <button
@@ -98,7 +158,8 @@ export default function Slide3() {
           variants={item}
           className="mt-8 flex w-full flex-col items-center"
         >
-          {/* Capsule photo */}
+          {/* Capsule photo — dikembalikan ke bentuk semula (revisi user):
+              capsule tegak memanjang seperti desain awal. */}
           <div className="relative h-64 w-44 overflow-hidden rounded-full border border-white/80 shadow-[0_18px_45px_-12px_rgba(76,58,40,0.45)] ring-1 ring-stone-900/5 sm:h-72 sm:w-48">
             <img
               src={GROOM_PHOTO}
@@ -155,7 +216,8 @@ export default function Slide3() {
           variants={item}
           className="flex w-full flex-col items-center"
         >
-          {/* Capsule photo */}
+          {/* Capsule photo — dikembalikan ke bentuk semula (revisi user):
+              capsule tegak memanjang seperti desain awal. */}
           <div className="relative h-64 w-44 overflow-hidden rounded-full border border-white/80 shadow-[0_18px_45px_-12px_rgba(76,58,40,0.45)] ring-1 ring-stone-900/5 sm:h-72 sm:w-48">
             <img
               src={BRIDE_PHOTO}
