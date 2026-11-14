@@ -158,7 +158,7 @@ export default function Slide1Cover() {
               className="font-serif-display mt-5 whitespace-nowrap text-center text-[1.3rem] font-semibold uppercase tracking-[0.05em] sm:text-[1.55rem]"
               style={{ color: MAROON }}
             >
-              Yayak{" "}
+              Hendra{" "}
               <span className="font-wedding text-[1.3em] font-normal normal-case italic">
                 &amp;
               </span>{" "}
