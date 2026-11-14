@@ -56,6 +56,20 @@ const item = {
 export default function Slide1Cover() {
   const openInvitation = useInvitation((s) => s.openInvitation);
 
+  // Revisi user: klik "Buka Undangan" → slide 2 + musik ASMARANALA langsung
+  // play otomatis dan terus berlanjut di slide berikutnya. play() DIPANGGIL
+  // DI DALAM gesture klik ini (bukan lewat useEffect) — itu satu-satunya
+  // cara yang 100% lolos autoplay policy browser (apalagi iOS Safari).
+  // Volume mulai 0, MusicPlayer yang fade-in pelan.
+  const handleOpenInvitation = () => {
+    openInvitation();
+    const audio = document.querySelector("audio");
+    if (audio) {
+      audio.volume = 0;
+      audio.play().catch(() => {});
+    }
+  };
+
   // Guest name — di-resolve dari URL ?to=<code|name>.
   //   • ?to=budi      → lookup ke DB /api/guests/lookup → "Budi Santoso" (jika terdaftar)
   //   • ?to=Budi+Sapo → tidak terdaftar → tampil "Budi Sapo" literal
@@ -180,7 +194,7 @@ export default function Slide1Cover() {
             <motion.div variants={item} className="mt-5 w-full">
               <motion.button
                 type="button"
-                onClick={openInvitation}
+                onClick={handleOpenInvitation}
                 whileHover={{ y: -2 }}
                 whileTap={{ scale: 0.97 }}
                 className="group mx-auto flex h-8 w-full max-w-[9.5rem] items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-[#7b1e1e]/40 bg-[#7b1e1e] px-3.5 text-[0.5rem] uppercase tracking-[0.24em] text-white shadow-[0_10px_22px_-10px_rgba(123,30,30,0.65)] transition-colors hover:border-[#7b1e1e] hover:bg-[#671717] hover:text-white sm:text-[0.55rem]"
