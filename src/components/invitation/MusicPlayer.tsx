@@ -6,10 +6,11 @@ import { Music, Music2 } from "lucide-react";
 import { useInvitation } from "@/lib/invitation-store";
 
 /**
- * Lagu latar undangan. File di-host eksternal.
- * Ganti URL di bawah untuk mengganti lagu.
+ * Lagu latar undangan — Asmaranala (revisi user), file lokal di
+ * public/music/Asmaranala.mp3 (bukan host eksternal lagi supaya deploy
+ * Vercel/GitHub langsung bawa lagunya).
  */
-const MUSIC_URL = "https://ifalnaelil.vercel.app/bgmusic.mp3";
+const MUSIC_URL = "/music/Asmaranala.mp3";
 
 /**
  * MusicPlayer — invisible audio controller + floating toggle button.
@@ -59,29 +60,34 @@ export default function MusicPlayer() {
     }
   }, [musicPlaying, setMusicPlaying]);
 
-  // Don't render anything before the invitation is opened (cover slide
-  // handles its own "Buka Undangan" button — no music there).
-  if (!opened) return null;
-
+  // Don't render the floating button before the invitation is opened (cover
+  // slide handles its own "Buka Undangan" button — no music there).
+  // Catatan revisi user: elemen <audio> sendiri SELALU di-render sejak
+  // slide 1, supaya tombol "Buka Undangan" bisa memanggil play() langsung
+  // di dalam gesture klik (cara paling aman melawan autoplay policy —
+  // terutama iOS Safari), dan musik langsung bunyi di slide 2 + terus
+  // berlanjut di slide berikutnya.
   return (
     <>
       <audio ref={audioRef} src={MUSIC_URL} loop preload="auto" />
 
-      <motion.button
-        type="button"
-        onClick={toggleMusic}
-        aria-label={musicPlaying ? "Matikan musik" : "Putar musik"}
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.4, delay: 0.3 }}
-        className="group fixed bottom-5 right-4 z-[60] flex h-10 w-10 items-center justify-center rounded-full border border-[#544c39]/40 bg-white/70 text-[#544c39] shadow-[0_8px_20px_-8px_rgba(60,45,25,0.5)] backdrop-blur-sm transition-colors hover:border-[#544c39] hover:bg-white hover:text-[#3a3424] sm:right-8"
-      >
-        {musicPlaying ? (
-          <Music className="size-4 animate-pulse" />
-        ) : (
-          <Music2 className="size-4" />
-        )}
-      </motion.button>
+      {opened && (
+        <motion.button
+          type="button"
+          onClick={toggleMusic}
+          aria-label={musicPlaying ? "Matikan musik" : "Putar musik"}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="group fixed bottom-5 right-4 z-[60] flex h-10 w-10 items-center justify-center rounded-full border border-[#544c39]/40 bg-white/70 text-[#544c39] shadow-[0_8px_20px_-8px_rgba(60,45,25,0.5)] backdrop-blur-sm transition-colors hover:border-[#544c39] hover:bg-white hover:text-[#3a3424] sm:right-8"
+        >
+          {musicPlaying ? (
+            <Music className="size-4 animate-pulse" />
+          ) : (
+            <Music2 className="size-4" />
+          )}
+        </motion.button>
+      )}
     </>
   );
 }
