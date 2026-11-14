@@ -125,30 +125,31 @@
   }
 }
 
-/* Wedding invitation helpers — pakai @utility (Tailwind v4) supaya pasti
-   ter-emit ke output CSS. @layer utilities {} versi lama sering di-strip
-   oleh Tailwind v4 kalau class-nya bukan utility bawaan Tailwind. */
-@utility font-serif-display {
-  font-family: var(--font-playfair);
+/* Wedding invitation font helpers — PENTING: ditulis sebagai CSS biasa,
+   BUKAN @utility. Aturan @utility Tailwind v4 (4.1.18) terbukti tidak pernah
+   ter-emit di project ini (dev Turbopack maupun production build), sehingga
+   semua font fallback ke default. Plain CSS dijamin ikut ter-emit 100%. */
+.font-serif-display {
+  font-family: var(--font-playfair, "Playfair Display"), serif;
 }
-@utility font-script {
-  font-family: var(--font-cormorant);
+.font-script {
+  font-family: var(--font-cormorant, "Cormorant Garamond"), serif;
 }
-@utility font-latin {
-  font-family: var(--font-cinzel);
+.font-latin {
+  font-family: var(--font-cinzel, "Cinzel"), serif;
 }
-@utility font-wedding {
-  font-family: var(--font-great-vibes);
+.font-wedding {
+  font-family: var(--font-great-vibes, "Great Vibes"), cursive;
 }
-@utility no-scrollbar {
-  &::-webkit-scrollbar {
-    display: none;
-  }
+
+/* Sembunyikan scrollbar (dipakai panel daftar tamu) — plain CSS juga,
+   alasan sama dengan di atas. */
+.no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-@utility text-balance {
-  text-wrap: balance;
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
