@@ -85,7 +85,7 @@ export default function Slide5() {
       >
         <motion.h2
           variants={item}
-          className="font-wedding text-[2.6rem] leading-none text-white drop-shadow-[0_2px_10px_rgba(60,40,20,0.55)] sm:text-[3.2rem]"
+          className="font-wedding text-[2.6rem] leading-none text-[#740404] drop-shadow-[0_2px_8px_rgba(255,246,235,0.55)] sm:text-[3.2rem]"
         >
           Our Moment
         </motion.h2>
