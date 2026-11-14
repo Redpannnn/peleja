@@ -175,7 +175,7 @@ export default function Slide3() {
             className="font-wedding mt-4 text-[3rem] leading-none sm:text-[3.4rem]"
             style={{ color: MAROON }}
           >
-            Yayak
+            Hendra
           </p>
 
           {/* Nama lengkap — font-script */}
@@ -255,7 +255,7 @@ export default function Slide3() {
             className="font-script mt-1 max-w-[17rem] text-center text-[0.85rem] leading-relaxed sm:text-[0.95rem]"
             style={{ color: INK }}
           >
-            Bapak ... &amp; Ibu ...
+            Bapak Dadang bin Imran &amp; Ibu Lasmi Fitri Liana binti Ahyar
           </p>
         </motion.div>
       </motion.div>
