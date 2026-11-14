@@ -161,12 +161,49 @@ export default function Slide8() {
         style={{ position: "fixed", inset: 0, zIndex: 0 }}
         loading="eager"
       />
-      {/* Bg solid overlay putih (60% opacity, no blur) — di slide 7 aja.
-          position: absolute supaya scoped ke slide 7, nggak bocor ke slide lain. */}
+      {/* Bg solid overlay COKLAT (80% opacity) — sama seperti slide 9
+          penutup (revisi user). Position: absolute supaya scoped ke slide 8. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 z-[1] bg-white/60"
+        className="pointer-events-none absolute inset-0 z-[1] bg-[#4B352A]/80"
       />
+
+      {/* Bunga cascade di kedua pojok atas (revisi user) — kanan di-mirror
+          (sisi rimbun nempel pojok kanan), kiri normal (sisi rimbun nempel
+          pojok kiri), nempel pagenya (top-0) & outframe ~5%. Ukuran
+          digedein ~30%: min(46.8vw, 40.56rem) — nabrak elemen lain tidak
+          masalah. Dekoratif. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute right-[-5%] top-0 z-[3] h-[min(46.8vw,40.56rem)] -scale-x-100"
+      >
+        <motion.img
+          src="/flowers/wedding-flower-2.png"
+          alt=""
+          initial={{ opacity: 0, y: -22 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1.2, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="h-full w-auto select-none"
+          loading="eager"
+          decoding="async"
+        />
+      </div>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-[-5%] top-0 z-[3] h-[min(46.8vw,40.56rem)]"
+      >
+        <motion.img
+          src="/flowers/wedding-flower-2.png"
+          alt=""
+          initial={{ opacity: 0, y: -22 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1.2, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="h-full w-auto select-none"
+          loading="eager"
+          decoding="async"
+        />
+      </div>
+
       <button
         type="button"
         onClick={() => goTo("cover")}
@@ -186,19 +223,19 @@ export default function Slide8() {
       >
         <motion.h2
           variants={item}
-          className="font-wedding text-[2.6rem] leading-none text-[#5b0101] sm:text-[3.2rem]"
+          className="font-wedding text-[2.6rem] leading-none text-[#f4ede0] sm:text-[3.2rem]"
         >
           RSVP
         </motion.h2>
 
         <span
           aria-hidden
-          className="my-5 h-px w-24 bg-gradient-to-r from-transparent via-[#544c39]/40 to-transparent"
+          className="my-5 h-px w-24 bg-gradient-to-r from-transparent via-white/50 to-transparent"
         />
 
         <motion.p
           variants={item}
-          className="font-script mb-6 text-center text-[0.82rem] leading-relaxed text-[#5b0101] sm:text-[0.9rem]"
+          className="font-script mb-6 text-center text-[0.82rem] leading-relaxed text-[#f4ede0] sm:text-[0.9rem]"
         >
           Konfirmasi kehadiran Anda agar kami dapat mempersiapkan acara dengan
           sebaik-baiknya.
@@ -350,12 +387,12 @@ export default function Slide8() {
           variants={item}
           className="mt-10 flex w-full flex-col items-center"
         >
-          <h3 className="font-latin text-[0.72rem] font-medium uppercase tracking-[0.28em] text-[#5b0101] sm:text-[0.78rem]">
+          <h3 className="font-latin text-[0.72rem] font-medium uppercase tracking-[0.28em] text-[#f4ede0] sm:text-[0.78rem]">
             Ucapan &amp; Doa
           </h3>
           <span
             aria-hidden
-            className="my-4 h-px w-24 bg-gradient-to-r from-transparent via-[#544c39]/40 to-transparent"
+            className="my-4 h-px w-24 bg-gradient-to-r from-transparent via-white/50 to-transparent"
           />
 
           {wishesLoading && wishes.length === 0 ? (
@@ -363,7 +400,7 @@ export default function Slide8() {
               <Loader2 className="size-4 animate-spin" />
             </div>
           ) : wishes.length === 0 ? (
-            <p className="font-script py-4 text-center text-[0.8rem] text-[#5b0101]/70 sm:text-[0.88rem]">
+            <p className="font-script py-4 text-center text-[0.8rem] text-[#f4ede0]/80 sm:text-[0.88rem]">
               Belum ada ucapan. Jadilah yang pertama mengirim doa restu.
             </p>
           ) : (
