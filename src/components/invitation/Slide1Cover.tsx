@@ -120,16 +120,19 @@ export default function Slide1Cover() {
               The Wedding Of
             </motion.p>
 
-            {/* Foto mempelai — capsule memenuhi lebar kartu, tanpa sisa space */}
+            {/* Foto mempelai — capsule memanjang ke atas ke bawah (revisi
+                user). Foto asli 1080x2400 punya bar hitam atas & bawah
+                (konten asli di 16.25%-83.71% tinggi gambar, hasil ukur presisi),
+                jadi gambar di-zoom 1.14x dan di-offset supaya area konten
+                memenuhi kapsul penuh tanpa bar hitam. Rasio kapsul 11:18. */}
             <motion.div
               variants={item}
-              className="relative mt-4 h-[34dvh] max-h-[330px] min-h-[220px] w-full overflow-hidden rounded-full border-2 border-white bg-white/40 shadow-[0_18px_45px_-12px_rgba(76,58,40,0.5)]"
+              className="relative mt-4 aspect-[11/18] w-44 overflow-hidden rounded-full border-2 border-white bg-white/40 shadow-[0_18px_45px_-12px_rgba(76,58,40,0.5)] sm:w-48"
             >
               <img
                 src={COUPLE_PHOTO}
                 alt="Foto mempelai Yayak & Eci"
-                className="h-full w-full select-none object-cover"
-                style={{ objectPosition: "50% 38%" }}
+                className="absolute left-1/2 top-[-25%] w-[114%] max-w-none -translate-x-1/2 select-none"
                 loading="eager"
                 decoding="async"
               />
