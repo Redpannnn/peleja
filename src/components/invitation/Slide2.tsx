@@ -5,192 +5,133 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import { useInvitation } from "@/lib/invitation-store";
 
-// YouTube Shorts — video pengganti section 2 (revisi user).
-const VIDEO_ID = "6mbMlJ2jb2I";
+// Video section 2 — mp4 self-hosted (revisi user, file dari imglink).
+// Menggantikan YouTube embed: lebih cepat, tanpa dependensi API eksternal.
+const VIDEO_SRC =
+  "https://imglinkv-3.vercel.app/api/images/cmwfqh2c0jgbrwjub/file";
 
 // Wallpaper yang tampil setelah video kelar / durasi habis (revisi user).
 const AFTER_VIDEO_WALLPAPER =
-  "https://imglinkv-3.vercel.app/api/images/cmwdiqs1x0u100zm6/file";
+  "https://imglinkv-3.vercel.app/api/images/cmwdgsc0wzfl25lw0/file";
 
-// Fallback durasi (ms) — dipakai kalau event ENDED dari YouTube API tidak
-// terpicu (misal jaringan lambat), wallpaper tetap muncul otomatis.
+// Cover card putih setelah video (revisi user) — isinya 2 foto mempelai
+// yang muncul bergantian setiap 2 detik.
+const CARD_PHOTOS = [
+  "https://imglinkv-3.vercel.app/api/images/cmwdb8ashjtaehyzw/file",
+  "https://imglinkv-3.vercel.app/api/images/cmwdb88at0dzea3y0/file",
+];
+const CARD_PHOTO_INTERVAL_MS = 2000;
+
+// Posisi crop tiap foto (semua 1080x2400 dengan bar hitam atas & bawah —
+// konten asli di 16.25%-83.71% tinggi gambar, hasil ukur presisi).
+const CARD_PHOTO_POSITIONS = ["50% 50%", "50% 45%"];
+
+// Ayat Al-Qur'an pada kartu persegi yang menggabung dengan cover card
+// capsule di atasnya (revisi user).
+const QURAN_VERSE =
+  "Di antara tanda-tanda (kebesaran)-Nya ialah bahwa Dia menciptakan pasangan-pasangan untukmu dari (jenis) dirimu sendiri agar kamu merasa tenteram kepadanya. Dia menjadikan di antaramu rasa cinta dan kasih sayang. Sesungguhnya pada yang demikian itu benar-benar terdapat tanda-tanda (kebesaran Allah) bagi kaum yang berpikir.";
+const QURAN_LABEL = "QS. Ar-Rum : 21";
+
+// Fallback durasi (ms) — dipakai kalau metadata durasi video tidak terbaca
+// (jaringan lambat), wallpaper tetap muncul otomatis.
 const FALLBACK_DURATION_MS = 95_000;
 
-/* ── Minimal typing untuk YouTube IFrame Player API ── */
-type YTPlayer = {
-  destroy: () => void;
-  playVideo?: () => void;
-  getDuration?: () => number;
-};
-type YTNamespace = {
-  Player: new (
-    el: HTMLElement | string,
-    opts: {
-      videoId: string;
-      playerVars?: Record<string, string | number>;
-      events?: {
-        onReady?: () => void;
-        onStateChange?: (e: { data: number }) => void;
-      };
-    }
-  ) => YTPlayer;
-};
-declare global {
-  interface Window {
-    YT?: YTNamespace;
-    onYouTubeIframeAPIReady?: () => void;
-  }
-}
-
-// State player YouTube: 0 = ENDED (video selesai).
-const YT_STATE_ENDED = 0;
-
 /**
- * Muat (sekali) script YouTube IFrame API dan resolve begitu API siap.
- * Catatan: event `load` bootstrap script terpicu SEBELUM YT.Player tersedia —
- * yang benar adalah menunggu callback global `onYouTubeIframeAPIReady`.
- */
-function loadYouTubeAPI(): Promise<YTNamespace> {
-  return new Promise((resolve, reject) => {
-    if (window.YT?.Player) {
-      resolve(window.YT);
-      return;
-    }
-
-    // Chain callback kalau ada pihak lain yang juga menunggu API.
-    const prev = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      prev?.();
-      if (window.YT?.Player) resolve(window.YT);
-      else reject(new Error("YouTube API tidak tersedia"));
-    };
-
-    if (!document.querySelector('script[data-yt-api="1"]')) {
-      const s = document.createElement("script");
-      s.src = "https://www.youtube.com/iframe_api";
-      s.dataset.ytApi = "1";
-      s.async = true;
-      s.addEventListener("error", () =>
-        reject(new Error("Gagal memuat YouTube API"))
-      );
-      document.head.appendChild(s);
-    }
-
-    // Safety timeout — kalau API tak kunjung siap, reject (→ wallpaper).
-    setTimeout(() => {
-      if (!window.YT?.Player) {
-        reject(new Error("YouTube API timeout"));
-      }
-    }, 10_000);
-  });
-}
-
-/**
- * Slide 2 — full screen video YouTube.
- * Saat video kelar (event ENDED / fallback timer), otomatis crossfade
- * ke wallpaper AFTER_VIDEO_WALLPAPER.
+ * Slide 2 — full screen video (mp4 native, autoplay muted).
+ * Saat video kelar (event ended / fallback timer / error), otomatis
+ * crossfade ke wallpaper AFTER_VIDEO_WALLPAPER, lalu langsung muncul
+ * cover card putih setengah capsule (90% opacity) berisi foto mempelai
+ * bergantian + kartu persegi berisi QS. Ar-Rum : 21.
  */
 export default function Slide2() {
   const goTo = useInvitation((s) => s.goTo);
+  const setCoverCardShown = useInvitation((s) => s.setCoverCardShown);
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const playerRef = useRef<YTPlayer | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [videoDone, setVideoDone] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
 
   useEffect(() => {
-    let cancelled = false;
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const scheduleFallback = (seconds: number) => {
+    const scheduleFallback = (ms: number) => {
       if (fallbackTimer) clearTimeout(fallbackTimer);
-      fallbackTimer = setTimeout(
-        () => setVideoDone(true),
-        Math.max(1, seconds) * 1000 + 1500
-      );
+      fallbackTimer = setTimeout(() => setVideoDone(true), Math.max(1000, ms));
     };
 
-    // Host dibuat imperatively supaya replace node oleh YouTube API
-    // tidak bentrok dengan reconciliasi React.
-    const host = document.createElement("div");
-    containerRef.current?.appendChild(host);
-
-    loadYouTubeAPI()
-      .then((YT) => {
-        if (cancelled) return;
-        const player = new YT.Player(host, {
-          videoId: VIDEO_ID,
-          playerVars: {
-            autoplay: 1,
-            mute: 1, // musik latar undangan sudah jalan — video tetap muted
-            playsinline: 1,
-            controls: 0,
-            rel: 0,
-            modestbranding: 1,
-            disablekb: 1,
-            fs: 0,
-            iv_load_policy: 3,
-          },
-          events: {
-            // Pastikan video mulai main begitu siap, lalu pasang fallback
-            // timer berdasarkan durasi asli video (kalau event ENDED
-            // tidak terpicu, wallpaper tetap muncul otomatis).
-            onReady: () => {
-              try {
-                player.playVideo?.();
-              } catch {
-                /* autoplay mungkin diblokir — fallback timer tetap jalan */
-              }
-              const dur = (() => {
-                try {
-                  return player.getDuration?.() ?? 0;
-                } catch {
-                  return 0;
-                }
-              })();
-              scheduleFallback(dur > 0 ? dur : FALLBACK_DURATION_MS / 1000);
-            },
-            onStateChange: (e) => {
-              if (e.data === YT_STATE_ENDED) setVideoDone(true);
-            },
-            // Video gagal dimuat (dihapus, private, dsb.) → langsung wallpaper.
-            onError: () => setVideoDone(true),
-          },
-        });
-        playerRef.current = player;
-      })
-      .catch(() => {
-        // API gagal dimuat (offline dsb.) — langsung tampilkan wallpaper.
-        if (!cancelled) setVideoDone(true);
-      });
+    // Safety timer pertama — kalau metadata lama keluar, wallpaper tetap
+    // muncul otomatis berdasarkan estimasi durasi.
+    scheduleFallback(FALLBACK_DURATION_MS);
 
     return () => {
-      cancelled = true;
       if (fallbackTimer) clearTimeout(fallbackTimer);
-      try {
-        playerRef.current?.destroy();
-      } catch {
-        /* player mungkin sudah hancur sendiri */
-      }
-      playerRef.current = null;
-      host.remove();
     };
   }, []);
+
+  // Preload kedua foto cover card selama video diputar supaya saat
+  // wallpaper muncul foto langsung tampil tanpa loading.
+  useEffect(() => {
+    CARD_PHOTOS.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, []);
+
+  // 2 foto bergantian setiap 2 detik setelah wallpaper + cover card muncul.
+  useEffect(() => {
+    if (!videoDone) return;
+    const timer = setInterval(() => {
+      setPhotoIndex((i) => (i + 1) % CARD_PHOTOS.length);
+    }, CARD_PHOTO_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [videoDone]);
+
+  // Revisi user: bunga pembatas slide 2↔3 (di Slide3) harus muncul BARENG
+  // cover card di slide ini. Slide3 tidak bisa tahu kapan video kelar,
+  // jadi lewat flag global di store — di-set tepat saat videoDone (kartu
+  // sendiri punya delay 0.25s + durasi 1s, sama seperti animasi bunga).
+  useEffect(() => {
+    if (videoDone) setCoverCardShown(true);
+  }, [videoDone, setCoverCardShown]);
 
   return (
     <main
       className="relative isolate z-10 flex h-[100dvh] w-full flex-col items-center overflow-hidden bg-[#f3e9de]"
     >
       {/* ── Video full screen (cover-fit) ── */}
-      <div
-        ref={containerRef}
+      <video
+        ref={(v) => {
+          videoRef.current = v;
+          // React kadang tidak menerapkan atribut muted ke DOM — set langsung
+          // supaya autoplay tanpa suara selalu diizinkan browser.
+          if (v) {
+            v.muted = true;
+            v.play().catch(() => {});
+          }
+        }}
+        src={VIDEO_SRC}
         aria-label="Video pernikahan Yayak & Eci"
-        className="absolute inset-0 z-[1] overflow-hidden [&_iframe]:absolute [&_iframe]:left-1/2 [&_iframe]:top-1/2 [&_iframe]:h-[max(100dvh,177.78vw)] [&_iframe]:w-[max(100vw,56.25dvh)] [&_iframe]:-translate-x-1/2 [&_iframe]:-translate-y-1/2 [&_iframe]:border-0"
+        className="absolute inset-0 z-[1] h-full w-full select-none object-cover"
+        autoPlay
+        muted
+        playsInline
+        preload="auto"
+        disablePictureInPicture
+        onLoadedMetadata={(e) => {
+          const dur = e.currentTarget.duration;
+          if (Number.isFinite(dur) && dur > 0) {
+            // Reschedule fallback dengan durasi asli video (+buffer 1.5s).
+            setTimeout(() => setVideoDone(true), dur * 1000 + 1500);
+          }
+        }}
+        onEnded={() => setVideoDone(true)}
+        onError={() => setVideoDone(true)}
       />
 
       {/* Overlay penahan klik — video tidak interaktif */}
       <div aria-hidden className="absolute inset-0 z-[2]" />
 
-      {/* ── Wallpaper pengganti setelah video selesai ── */}
+      {/* ── Wallpaper pengganti setelah video selesai + cover card ── */}
       <AnimatePresence>
         {videoDone && (
           <motion.div
@@ -199,15 +140,63 @@ export default function Slide2() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 1.1, ease: "easeInOut" }}
-            className="absolute inset-0 z-[3]"
+            className="absolute inset-0 z-[3] flex items-center justify-center overflow-hidden"
           >
             <img
               src={AFTER_VIDEO_WALLPAPER}
               alt="Latar setelah video"
-              className="h-full w-full select-none object-cover"
+              className="absolute inset-0 h-full w-full select-none object-cover"
               loading="eager"
               decoding="async"
             />
+
+            {/* ── Cover card putih 90% — setengah capsule memanjang ke atas
+                (revisi user), digabung dengan kartu persegi di bawahnya ── */}
+            <motion.div
+              initial={{ opacity: 0, y: 26, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{
+                duration: 1.0,
+                ease: [0.22, 1, 0.36, 1],
+                delay: 0.25,
+              }}
+              className="relative z-10 w-[min(19rem,88vw)]"
+            >
+              <div className="overflow-hidden rounded-t-full rounded-b-[2rem] border-2 border-[#F7D794]/70 bg-white/90 shadow-[0_28px_60px_-20px_rgba(60,45,25,0.45)] backdrop-blur-[2px]">
+                {/* Kartu capsule atas — setengah capsule memanjang ke atas,
+                    isi foto mempelai bergantian setiap 2 detik. Tinggi foto
+                    adaptif viewport supaya kartu + ayat selalu muat di layar
+                    pendek (desktop kecil / ponsel). */}
+                <div className="px-4 pb-5 pt-4">
+                  <div className="relative h-[min(18rem,38dvh)] w-full overflow-hidden rounded-t-full rounded-b-[1.25rem] bg-[#f3e9de]">
+                    {CARD_PHOTOS.map((src, i) => (
+                      <motion.img
+                        key={src}
+                        src={src}
+                        alt={`Foto mempelai ${i + 1}`}
+                        initial={false}
+                        animate={{ opacity: photoIndex === i ? 1 : 0 }}
+                        transition={{ duration: 0.9, ease: "easeInOut" }}
+                        className="absolute inset-0 h-full w-full select-none object-cover"
+                        style={{ objectPosition: CARD_PHOTO_POSITIONS[i] }}
+                        loading="eager"
+                        decoding="async"
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Kartu persegi bawah — gabung dengan cover card capsule */}
+                <div className="px-6 pb-6 pt-1 text-center">
+                  <p className="font-script text-[0.82rem] leading-relaxed text-[#3a3424] sm:text-[0.9rem]">
+                    {QURAN_VERSE}
+                  </p>
+                  <p className="font-latin mt-3 text-[0.62rem] uppercase tracking-[0.28em] text-[#7b1e1e]">
+                    {QURAN_LABEL}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
